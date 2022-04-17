@@ -1,3 +1,4 @@
+from tkinter import N
 from flask import Flask,render_template,request,redirect,url_for,g
 import sqlite3
 import pyotp
@@ -60,17 +61,16 @@ def dashboard():
 
 
 @app.route('/pending',methods=['POST','GET'])
-
-
 def pending():
 	cur=get_db().cursor()
 	results = cur.execute('select * from sent_cheque where sent_to_bank=1').fetchall()
+	print(results)
 	valid=[False for i in range(len(results))]
 	if(request.method=='POST'):
 		if(request.form['key']=="default"):
 			index=int(request.form['valid-index'])
 			print("THIS IS THE INDEX",index)
-			valid[index]=True
+			valid[index]=False
 			if(request.form['but_type']=="sub"):
 
 				print(" i came her!!!!!!!")
@@ -91,17 +91,19 @@ def pending():
 				u'Amount': a[3],
 				u'IFSC': a[4],
 				})
-				r=requests.get('http://127.0.0.1:3001/url')
-				data = r.json()
-				otp_gen = data['otp']
-				print (otp_gen)
+				# r=requests.get('http://127.0.0.1:3001/url')
+				# data = r.json()
+				# otp_gen = data['otp']
+				# print (otp_gen)
 				# totp = pyotp.TOTP('base32secret3232')
 				# otp_gen=totp.now()
-				message=otp_gen
+				# message=otp_gen
+				message=12345
 				pusher.trigger(u'message', u'send', {
 				u'name': trans_id,
 				u'message':message
 				})
+				print("DEBUG: REACED HERE!")
 				otp=cur.execute('select * from otp_table where trans_id=?',(trans_id,)).fetchall()
 				if(len(otp)!=0):
 					cur.execute('delete from otp_table where trans_id=?',(trans_id,))
@@ -134,7 +136,7 @@ def pending():
 
 		else:
 			index=int(request.form['valid-index'])
-			valid[index]=False
+			valid[index]=True
 	try:
 		cur=get_db().cursor()
 		results = cur.execute('select * from sent_cheque where sent_to_bank=1').fetchall()
@@ -172,11 +174,19 @@ def getotp():
 		otp_value=int(request.form['otp'])
 		cur=get_db().cursor()
 		t=cur.execute('select * from otp_table where trans_id=? and otp=?',(trans_id,otp_value)).fetchall()
+		print(t)
 		if(len(t)==0):
 			success=0
 			return render_template('otp_success.html',success=success,trans_id=trans_id)
 		else:
 			success=1
+			x=cur.execute('select amount,sender_name, receiver_name from sent_cheque where trans_id=?', (trans_id, )).fetchone()
+			amount, sname, rname = x
+			balance = cur.execute('select balance from client where full_name=?',(sname,)).fetchone()
+			t=cur.execute('update client set balance=? where full_name=?',((balance[0]-amount), sname)).fetchall()
+			balance = cur.execute('select balance from client where full_name=?',(rname,)).fetchone()
+			t=cur.execute('update client set balance=? where full_name=?', ((balance[0]+amount), rname)).fetchall()
+			get_db().commit()
 			return render_template('otp_success.html',success=success,trans_id=trans_id)
 	# s="static/img/qr.png"
 	return render_template('otp.html')

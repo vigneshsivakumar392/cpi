@@ -87,7 +87,7 @@ def pending():
                     cur.execute('insert into otp_table(trans_id,otp,timestamp_val) values(?,?,?)',(trans_id,message))
         else:
             index=int(request.form['valid-index'])
-            valid[index]=False
+            valid[index]=True
     try:
         cur=get_db().cursor()
         results = cur.execute('select * from sent_cheque where sent_to_bank=1').fetchall()
